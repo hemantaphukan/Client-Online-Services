@@ -1,0 +1,6 @@
+{
+  "name": "ServiceMaster Pro",
+  "description": "Comprehensive client services portal where clients place wallet top-up requests and order services, and administrators approve registrations, orders, and credit wallet balances.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
