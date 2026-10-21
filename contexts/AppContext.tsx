@@ -43,6 +43,9 @@ interface AppContextType {
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   updateUserStatus: (userId: string, status: UserStatus) => void;
   addService: (service: Omit<Service, 'id'>) => void;
+  deleteService: (serviceId: string) => void;
+  clearAllServices: () => void;
+  resetDefaultServices: () => void;
   addServiceAttachment: (serviceId: string, attachment: FileAttachment) => void;
   removeServiceAttachment: (serviceId: string, attachmentId: string) => void;
   addOrderAttachment: (orderId: string, attachment: FileAttachment) => void;
@@ -397,7 +400,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `s_${Date.now()}`,
       attachments: service.attachments || []
     };
-    setServices(prev => [...services, newService]);
+    setServices(prev => [...prev, newService]);
+    showToast(`Service "${newService.name}" created!`, 'success');
+  };
+
+  const deleteService = (serviceId: string) => {
+    const target = services.find(s => s.id === serviceId);
+    setServices(prev => prev.filter(s => s.id !== serviceId));
+    showToast(`Service "${target?.name || serviceId}" deleted successfully.`, 'info');
+  };
+
+  const clearAllServices = () => {
+    setServices([]);
+    showToast('All services removed from catalog.', 'info');
+  };
+
+  const resetDefaultServices = () => {
+    setServices(INITIAL_SERVICES);
+    showToast('Default services restored.', 'success');
   };
 
   const addServiceAttachment = (serviceId: string, attachment: FileAttachment) => {
@@ -429,8 +449,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         attachments: [...(o.attachments || []), attachment]
       };
     }));
+
+    const targetOrder = orders.find(o => o.id === orderId);
+    if (targetOrder) {
+      if (currentUser?.role === UserRole.ADMIN) {
+        // Admin uploaded deliverable -> notify client
+        const notif: AppNotification = {
+          id: `notif_${Date.now()}_att`,
+          title: '📦 Order Deliverable Uploaded',
+          message: `Admin uploaded "${attachment.name}" for Order #${orderId} (${targetOrder.serviceName}).`,
+          type: 'ORDER_DELIVERABLE',
+          createdAt: new Date().toISOString(),
+          read: false,
+          forRole: UserRole.CUSTOMER,
+          userId: targetOrder.userId,
+          orderId: orderId,
+          linkTab: 'orders'
+        };
+        setNotifications(prev => [notif, ...prev]);
+      } else {
+        // Client uploaded file -> notify admin
+        const notif: AppNotification = {
+          id: `notif_${Date.now()}_att`,
+          title: '📎 Client Uploaded File to Order',
+          message: `${currentUser?.fullName || 'Client'} uploaded "${attachment.name}" to Order #${orderId}.`,
+          type: 'ORDER_DELIVERABLE',
+          createdAt: new Date().toISOString(),
+          read: false,
+          forRole: UserRole.ADMIN,
+          orderId: orderId,
+          linkTab: 'orders'
+        };
+        setNotifications(prev => [notif, ...prev]);
+      }
+    }
+
     showToast(`Attachment "${attachment.name}" uploaded to Order #${orderId}`, "success");
   };
+
 
   const removeOrderAttachment = (orderId: string, attachmentId: string) => {
     setOrders(prev => prev.map(o => {
@@ -481,6 +537,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setWalletRequests(prev => [newRequest, ...prev]);
+
+
+    // Admin notification for topup request
+    const adminTopupNotif: AppNotification = {
+      id: `notif_${Date.now()}_topup`,
+      title: '💳 New Top-Up Request',
+      message: `${currentUser.fullName} requested to add ₹${Number(amount).toLocaleString('en-IN')} via ${paymentMethod} (Ref: ${transactionRef.trim() || 'N/A'}).`,
+      type: 'WALLET_REQUEST',
+      createdAt: new Date().toISOString(),
+      read: false,
+      forRole: UserRole.ADMIN,
+      referenceId: newRequest.id,
+      linkTab: 'wallet-requests'
+    };
+    setNotifications(prev => [adminTopupNotif, ...prev]);
+
     showToast(`Top-up request for ₹${amount.toLocaleString('en-IN')} submitted!`, 'success');
     return true;
   };
@@ -537,8 +609,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           } 
         : r
     ));
+
+    // Notify client that top-up was approved
+    const custCreditedNotif: AppNotification = {
+      id: `notif_${Date.now()}_credited`,
+      title: '✅ Wallet Balance Credited!',
+      message: `Your deposit request has been approved! ₹${creditAmount.toLocaleString('en-IN')} has been added to your wallet balance.`,
+      type: 'WALLET_APPROVED',
+      createdAt: new Date().toISOString(),
+      read: false,
+      forRole: UserRole.CUSTOMER,
+      userId: targetUser.id,
+      referenceId: requestId,
+      linkTab: 'wallet'
+    };
+    setNotifications(prev => [custCreditedNotif, ...prev]);
+
     showToast(`₹${creditAmount.toLocaleString('en-IN')} credited to ${targetUser.fullName}'s wallet!`, 'success');
   };
+
 
   // Admin rejects a client's top-up request
   const rejectWalletRequest = (requestId: string, adminNotes?: string) => {
@@ -591,6 +680,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const pendingRequestsCount = walletRequests.filter(r => r.status === WalletRequestStatus.PENDING).length;
+  const pendingOrdersCount = orders.filter(o => o.status === OrderStatus.PENDING).length;
 
   return (
     <AppContext.Provider value={{
@@ -609,6 +699,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateOrderStatus, 
       updateUserStatus, 
       addService,
+      deleteService,
+      clearAllServices,
+      resetDefaultServices,
       addServiceAttachment,
       removeServiceAttachment,
       addOrderAttachment,
@@ -619,6 +712,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       rejectWalletRequest,
       adjustUserWallet,
       pendingRequestsCount,
+      pendingOrdersCount,
+      notifications: visibleNotifications,
+      unreadNotificationsCount,
+      markNotificationAsRead,
+      markAllNotificationsAsRead,
+      clearNotifications,
+      addNotification,
       toast,
       showToast,
       hideToast

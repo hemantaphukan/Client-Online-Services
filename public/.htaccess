@@ -1,0 +1,31 @@
+# ServiceMaster Pro - Apache Configuration for InfinityFree
+# Place this .htaccess in the root of your htdocs folder
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # 1. Do not rewrite existing files or directories (allows /api/*.php, assets, images to load directly)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # 2. Allow direct access to the api directory
+  RewriteRule ^api/ - [L]
+
+  # 3. Rewrite all other requests to index.html for Single Page Application (SPA) routing
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Security: Prevent viewing of sensitive files
+<FilesMatch "(^\.env|\.sql|\.git|config\.sample)">
+  Order Allow,Deny
+  Deny from all
+</FilesMatch>
+
+# Enable CORS headers for API requests
+<IfModule mod_headers.c>
+  Header always set Access-Control-Allow-Origin "*"
+  Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+  Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+</IfModule>

@@ -29,7 +29,18 @@ import {
   Save,
   FileCheck,
   Smartphone,
-  Trash2
+  Trash2,
+  ShoppingCart,
+  Server,
+  Database,
+  ExternalLink,
+  Globe,
+  Terminal,
+  HelpCircle,
+  RefreshCw,
+  FileDown,
+  CheckSquare,
+  Sparkles
 } from 'lucide-react';
 import { 
   UserStatus, 
@@ -45,6 +56,8 @@ import {
   fileToAttachment,
   formatFileSize 
 } from '../components/AttachmentViewerModal';
+import { api, DBTestResult, getApiBaseUrl, setApiBaseUrl } from '../services/api';
+import { InfinityFreeDeployCenter } from '../components/InfinityFreeDeployCenter';
 
 export const AdminDashboard: React.FC = () => {
   const { 
@@ -58,6 +71,9 @@ export const AdminDashboard: React.FC = () => {
     updateUserStatus, 
     updateOrderStatus, 
     addService,
+    deleteService,
+    clearAllServices,
+    resetDefaultServices,
     addServiceAttachment,
     removeServiceAttachment,
     addOrderAttachment,
@@ -67,6 +83,7 @@ export const AdminDashboard: React.FC = () => {
     rejectWalletRequest,
     adjustUserWallet,
     pendingRequestsCount,
+    pendingOrdersCount,
     showToast
   } = useApp();
 
@@ -263,7 +280,12 @@ export const AdminDashboard: React.FC = () => {
           label: 'Payment Account Details', 
           icon: <Building className="w-5 h-5" /> 
         },
-        { id: 'orders', label: 'Manage Orders', icon: <FileText className="w-5 h-5" /> },
+        { 
+          id: 'orders', 
+          label: 'Manage Orders', 
+          icon: <FileText className="w-5 h-5" />,
+          badge: pendingOrdersCount > 0 ? pendingOrdersCount : undefined
+        },
         { id: 'services', label: 'Manage Services', icon: <PlusCircle className="w-5 h-5" /> },
         { 
           id: 'approvals', 
@@ -272,7 +294,7 @@ export const AdminDashboard: React.FC = () => {
           badge: pendingUsers.length > 0 ? pendingUsers.length : undefined 
         },
         { id: 'users', label: 'Client Directory', icon: <Users className="w-5 h-5" /> },
-        { id: 'php-code', label: 'PHP/MySQL Code', icon: <Code className="w-5 h-5" /> },
+        { id: 'infinityfree', label: 'InfinityFree & MySQL', icon: <Server className="w-5 h-5" /> },
       ]}
     >
       <header className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -307,7 +329,39 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </header>
 
+      {/* NEW CLIENT ORDER ALERT BANNER (NOTIFICATION FOR ADMIN) */}
+      {pendingOrdersCount > 0 && activeTab !== 'orders' && (
+        <div 
+          onClick={() => setActiveTab('orders')}
+          className="mb-6 p-4 rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-indigo-700 transition-all animate-in fade-in"
+        >
+          <div className="flex items-center space-x-3.5">
+            <div className="w-10 h-10 rounded-xl bg-white/20 text-white flex items-center justify-center flex-shrink-0">
+              <ShoppingCart className="w-5 h-5 animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded">
+                  New Order Notification
+                </span>
+                <span className="text-xs font-semibold text-indigo-200">Action Required</span>
+              </div>
+              <p className="text-sm font-bold mt-0.5">
+                {pendingOrdersCount} new client order{pendingOrdersCount > 1 ? 's have' : ' has'} been placed! Click to review and assign deliverables.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="px-4 py-1.5 bg-white text-indigo-700 rounded-xl font-bold text-xs shadow-sm hover:bg-indigo-50 transition-colors self-start sm:self-auto"
+          >
+            View Orders &rarr;
+          </button>
+        </div>
+      )}
+
       {/* TAB 1: WALLET & TOP-UP REQUEST APPROVALS */}
+
       {activeTab === 'wallet-requests' && (
         <div className="space-y-6">
           {/* Active Company Account Banner */}
@@ -933,120 +987,190 @@ export const AdminDashboard: React.FC = () => {
       {activeTab === 'services' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+            <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Current Services & Package Attachments</h2>
-                <p className="text-xs text-slate-500">Attach brochures, deliverable templates, or scope documents for clients</p>
+                <p className="text-xs text-slate-500">Manage service catalog, delete services, and attach/remove package brochures</p>
               </div>
-              <span className="text-xs text-slate-500 font-mono">{services.length} Total</span>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-slate-500 font-mono px-2 py-1 bg-slate-100 rounded-lg">
+                  {services.length} {services.length === 1 ? 'Service' : 'Services'}
+                </span>
+                {services.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeleteTarget({
+                        name: `All ${services.length} Services`,
+                        source: 'Entire Service Catalog',
+                        onConfirm: () => {
+                          clearAllServices();
+                        }
+                      });
+                    }}
+                    className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 rounded-lg transition-colors"
+                    title="Delete all services from catalog"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Clear All</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={resetDefaultServices}
+                    className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 border border-indigo-200 rounded-lg transition-colors"
+                    title="Restore default sample services"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Restore Samples</span>
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-slate-600 font-semibold text-xs uppercase">
-                  <tr>
-                    <th className="px-6 py-4">Service</th>
-                    <th className="px-6 py-4">Price</th>
-                    <th className="px-6 py-4">Package Attachments (Brochures / Docs)</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {services.map(s => (
-                    <tr key={s.id}>
-                      <td className="px-6 py-4">
-                        <p className="font-bold text-slate-900">{s.name}</p>
-                        <span className="text-xs font-semibold bg-slate-100 px-2 py-0.5 rounded text-slate-700">
-                          {s.category}
-                        </span>
-                        <p className="text-xs text-slate-500 mt-1 max-w-xs">{s.description}</p>
-                      </td>
-                      <td className="px-6 py-4 font-mono font-bold text-indigo-600">
-                        ₹{s.price.toLocaleString('en-IN')}
-                      </td>
-                      
-                      {/* Service Attachments */}
-                      <td className="px-6 py-4">
-                        <div className="space-y-1.5">
-                          {s.attachments && s.attachments.length > 0 ? (
-                            <div className="flex flex-col gap-1.5">
-                              {s.attachments.map(att => (
-                                <div key={att.id} className="inline-flex items-center justify-between p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs">
-                                  <div className="flex items-center space-x-1.5 truncate pr-2">
-                                    <Paperclip className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />
-                                    <span className="truncate max-w-[140px] text-slate-800 font-medium">{att.name}</span>
-                                    <span className="text-[10px] text-slate-400 font-mono">({formatFileSize(att.size)})</span>
-                                  </div>
-                                  <div className="flex items-center space-x-1 flex-shrink-0">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setViewerTitle(`Package Document • ${s.name}`);
-                                        setViewingAttachment(att);
-                                        setViewerDeleteCallback({
-                                          fn: () => removeServiceAttachment(s.id, att.id)
-                                        });
-                                      }}
-                                      className="p-1 text-indigo-600 hover:text-indigo-800"
-                                      title="View attachment"
-                                    >
-                                      <Eye className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => downloadAttachment(att)}
-                                      className="p-1 text-slate-600 hover:text-slate-900"
-                                      title="Download attachment"
-                                    >
-                                      <Download className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setDeleteTarget({
-                                          name: att.name,
-                                          source: `Service Package "${s.name}"`,
-                                          onConfirm: () => {
-                                            removeServiceAttachment(s.id, att.id);
-                                            if (viewingAttachment?.id === att.id) {
-                                              setViewingAttachment(null);
-                                            }
-                                          }
-                                        });
-                                      }}
-                                      className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
-                                      title="Delete attachment from package"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-400 italic">No attachments</span>
-                          )}
 
-                          {/* Add attachment to this service */}
-                          <label className="cursor-pointer inline-flex items-center space-x-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition-colors">
-                            <Upload className="w-3.5 h-3.5" />
-                            <span>+ Add Brochure/Doc</span>
-                            <input
-                              type="file"
-                              className="hidden"
-                              onChange={(e) => handleUploadServiceAttachment(s.id, e.target.files)}
-                            />
-                          </label>
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-xs text-slate-400 font-mono">ID: {s.id}</span>
-                      </td>
+            {services.length === 0 ? (
+              <div className="p-16 text-center text-slate-400">
+                <PlusCircle className="w-12 h-12 mx-auto mb-2 opacity-30 text-indigo-400" />
+                <p className="font-bold text-slate-700 text-sm">No services currently available.</p>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                  All service packages have been deleted. You can create a new service using the form on the right, or restore sample services.
+                </p>
+                <button
+                  type="button"
+                  onClick={resetDefaultServices}
+                  className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all inline-flex items-center space-x-1.5"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Restore Default Services</span>
+                </button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-slate-600 font-semibold text-xs uppercase">
+                    <tr>
+                      <th className="px-6 py-4">Service</th>
+                      <th className="px-6 py-4">Price</th>
+                      <th className="px-6 py-4">Package Attachments (Brochures / Docs)</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {services.map(s => (
+                      <tr key={s.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="px-6 py-4">
+                          <p className="font-bold text-slate-900">{s.name}</p>
+                          <span className="text-xs font-semibold bg-slate-100 px-2 py-0.5 rounded text-slate-700">
+                            {s.category}
+                          </span>
+                          <p className="text-xs text-slate-500 mt-1 max-w-xs">{s.description}</p>
+                        </td>
+                        <td className="px-6 py-4 font-mono font-bold text-indigo-600">
+                          ₹{s.price.toLocaleString('en-IN')}
+                        </td>
+                        
+                        {/* Service Attachments */}
+                        <td className="px-6 py-4">
+                          <div className="space-y-1.5">
+                            {s.attachments && s.attachments.length > 0 ? (
+                              <div className="flex flex-col gap-1.5">
+                                {s.attachments.map(att => (
+                                  <div key={att.id} className="inline-flex items-center justify-between p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs">
+                                    <div className="flex items-center space-x-1.5 truncate pr-2">
+                                      <Paperclip className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />
+                                      <span className="truncate max-w-[140px] text-slate-800 font-medium">{att.name}</span>
+                                      <span className="text-[10px] text-slate-400 font-mono">({formatFileSize(att.size)})</span>
+                                    </div>
+                                    <div className="flex items-center space-x-1 flex-shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setViewerTitle(`Package Document • ${s.name}`);
+                                          setViewingAttachment(att);
+                                          setViewerDeleteCallback({
+                                            fn: () => removeServiceAttachment(s.id, att.id)
+                                          });
+                                        }}
+                                        className="p-1 text-indigo-600 hover:text-indigo-800"
+                                        title="View attachment"
+                                      >
+                                        <Eye className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => downloadAttachment(att)}
+                                        className="p-1 text-slate-600 hover:text-slate-900"
+                                        title="Download attachment"
+                                      >
+                                        <Download className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setDeleteTarget({
+                                            name: att.name,
+                                            source: `Service Package "${s.name}"`,
+                                            onConfirm: () => {
+                                              removeServiceAttachment(s.id, att.id);
+                                              if (viewingAttachment?.id === att.id) {
+                                                setViewingAttachment(null);
+                                              }
+                                            }
+                                          });
+                                        }}
+                                        className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                                        title="Delete attachment from package"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-slate-400 italic">No package attachments</span>
+                            )}
+
+                            {/* Add attachment to this service */}
+                            <label className="cursor-pointer inline-flex items-center space-x-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition-colors">
+                              <Upload className="w-3.5 h-3.5" />
+                              <span>+ Add Brochure/Doc</span>
+                              <input
+                                type="file"
+                                className="hidden"
+                                onChange={(e) => handleUploadServiceAttachment(s.id, e.target.files)}
+                              />
+                            </label>
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end space-x-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeleteTarget({
+                                  name: s.name,
+                                  source: `Service Package (ID: ${s.id}, ₹${s.price.toLocaleString('en-IN')})`,
+                                  onConfirm: () => {
+                                    deleteService(s.id);
+                                  }
+                                });
+                              }}
+                              className="inline-flex items-center space-x-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 border border-red-200 rounded-lg text-xs font-bold transition-all shadow-sm"
+                              title="Delete this service package"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                              <span>Delete Service</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Add New Service Form with Attachments */}
@@ -1284,59 +1408,9 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 7: PHP / MYSQL ARCHITECTURE */}
-      {activeTab === 'php-code' && (
-        <div className="space-y-6">
-          <div className="bg-slate-900 text-white p-6 rounded-2xl border border-slate-800">
-            <div className="flex items-center space-x-3 mb-2">
-              <Code className="w-6 h-6 text-indigo-400" />
-              <h2 className="text-xl font-bold">PHP & MySQL Backend Implementation (INR & Attachments)</h2>
-            </div>
-            <p className="text-slate-300 text-sm max-w-3xl">
-              Production PHP & MySQL implementation supporting company payment details, attachments, and INR payments for your cPanel/Apache deployment.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-              <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                <div>
-                  <span className="font-mono font-bold text-sm text-slate-800">database.sql</span>
-                  <p className="text-[11px] text-slate-500">MySQL schema: attachments & payment settings</p>
-                </div>
-                <button
-                  onClick={() => copyToClipboard(SQL_SCHEMA_CODE, 'database.sql')}
-                  className="flex items-center space-x-1.5 px-3 py-1 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700 shadow-sm"
-                >
-                  {copiedFile === 'database.sql' ? <CheckCheck className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedFile === 'database.sql' ? 'Copied!' : 'Copy SQL'}</span>
-                </button>
-              </div>
-              <pre className="p-4 bg-slate-950 text-slate-200 font-mono text-xs overflow-x-auto h-72">
-                <code>{SQL_SCHEMA_CODE}</code>
-              </pre>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-              <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                <div>
-                  <span className="font-mono font-bold text-sm text-slate-800">company_payment.php</span>
-                  <p className="text-[11px] text-slate-500">Admin updates payment account details</p>
-                </div>
-                <button
-                  onClick={() => copyToClipboard(PHP_COMPANY_PAYMENT_CODE, 'company_payment.php')}
-                  className="flex items-center space-x-1.5 px-3 py-1 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700 shadow-sm"
-                >
-                  {copiedFile === 'company_payment.php' ? <CheckCheck className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedFile === 'company_payment.php' ? 'Copied!' : 'Copy PHP'}</span>
-                </button>
-              </div>
-              <pre className="p-4 bg-slate-950 text-slate-200 font-mono text-xs overflow-x-auto h-72">
-                <code>{PHP_COMPANY_PAYMENT_CODE}</code>
-              </pre>
-            </div>
-          </div>
-        </div>
+      {/* TAB 7: INFINITYFREE & MYSQL DEPLOYMENT CENTER */}
+      {(activeTab === 'infinityfree' || activeTab === 'php-code') && (
+        <InfinityFreeDeployCenter onNotify={showToast} />
       )}
 
       {/* MODAL 1: APPROVE TOP-UP REQUEST (WITH RECEIPT PREVIEW & DOWNLOAD) */}

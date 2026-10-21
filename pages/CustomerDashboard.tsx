@@ -27,7 +27,7 @@ import {
   FileCheck,
   Trash2
 } from 'lucide-react';
-import { OrderStatus, ChatMessage, WalletRequestStatus, FileAttachment } from '../types';
+import { Order, OrderStatus, ChatMessage, WalletRequestStatus, FileAttachment } from '../types';
 import { 
   AttachmentViewerModal, 
   downloadAttachment, 
@@ -56,6 +56,7 @@ export const CustomerDashboard: React.FC = () => {
   const [payUsingWallet, setPayUsingWallet] = useState(true);
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [orderAttachments, setOrderAttachments] = useState<FileAttachment[]>([]);
+  const [placedOrderNotification, setPlacedOrderNotification] = useState<Order | null>(null);
 
   // Topup modal state
   const [topupModalOpen, setTopupModalOpen] = useState(false);
@@ -137,7 +138,11 @@ export const CustomerDashboard: React.FC = () => {
       setOrderingServiceId(null);
       setOrderNotes('');
       setOrderAttachments([]);
-      setActiveTab('orders');
+      if (result.order) {
+        setPlacedOrderNotification(result.order);
+      } else {
+        setActiveTab('orders');
+      }
       showToast(result.message, 'success');
     } else {
       showToast(result.message, 'error');
@@ -281,13 +286,20 @@ export const CustomerDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {services.map(service => {
-              const affordable = walletBalance >= service.price;
-              const hasAttachments = service.attachments && service.attachments.length > 0;
+          {services.length === 0 ? (
+            <div className="bg-white rounded-2xl p-12 text-center border border-slate-200">
+              <ShoppingCart className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+              <h3 className="text-base font-bold text-slate-800">No Services Available Currently</h3>
+              <p className="text-xs text-slate-500 mt-1">Please check back soon or contact the administrator.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {services.map(service => {
+                const affordable = walletBalance >= service.price;
+                const hasAttachments = service.attachments && service.attachments.length > 0;
 
-              return (
-                <div 
+                return (
+                  <div 
                   key={service.id} 
                   className="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
                 >
@@ -375,6 +387,7 @@ export const CustomerDashboard: React.FC = () => {
               );
             })}
           </div>
+          )}
         </div>
       )}
 
@@ -1316,6 +1329,93 @@ export const CustomerDashboard: React.FC = () => {
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Yes, Remove Attachment</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ORDER PLACED NOTIFICATION CELEBRATION MODAL */}
+      {placedOrderNotification && (
+        <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 sm:p-7 border border-slate-200 text-center animate-in zoom-in-95 duration-200">
+            {/* Header Icon */}
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-500/30">
+              <CheckCircle2 className="w-9 h-9" />
+            </div>
+
+            <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 uppercase tracking-wider mb-2">
+              Order Confirmed & Placed
+            </span>
+
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900">
+              Order #{placedOrderNotification.id} Received!
+            </h3>
+
+            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+              Your service request has been registered and a live notification has been sent to the system administrator.
+            </p>
+
+            {/* Receipt Summary Card */}
+            <div className="my-5 p-4 bg-slate-50 rounded-2xl border border-slate-200 text-left text-xs space-y-2.5">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <span className="text-slate-500 font-medium">Service Package:</span>
+                <span className="font-bold text-slate-900 text-sm">{placedOrderNotification.serviceName}</span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Amount:</span>
+                <span className="font-mono font-bold text-indigo-700 text-base">{formatINR(placedOrderNotification.amount)}</span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Payment Mode:</span>
+                <span className={`px-2 py-0.5 rounded font-bold text-[11px] ${
+                  placedOrderNotification.paymentMethod === 'WALLET' 
+                    ? 'bg-emerald-100 text-emerald-800' 
+                    : 'bg-slate-200 text-slate-800'
+                }`}>
+                  {placedOrderNotification.paymentMethod === 'WALLET' ? 'Paid from INR Wallet' : 'Direct Payment / Invoice'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Current Status:</span>
+                <span className="px-2 py-0.5 rounded font-semibold text-[11px] bg-blue-100 text-blue-800">
+                  {placedOrderNotification.status.replace('_', ' ')}
+                </span>
+              </div>
+
+              {placedOrderNotification.attachments && placedOrderNotification.attachments.length > 0 && (
+                <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Attached Files:</span>
+                  <span className="font-semibold text-slate-800 flex items-center space-x-1">
+                    <Paperclip className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>{placedOrderNotification.attachments.length} requirement file(s) attached</span>
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setPlacedOrderNotification(null);
+                  setActiveTab('orders');
+                }}
+                className="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-600/30 transition-all flex items-center justify-center space-x-2"
+              >
+                <span>View in My Orders</span>
+                <ArrowUpRight className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlacedOrderNotification(null)}
+                className="w-full sm:w-auto px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
+              >
+                Continue Browsing
               </button>
             </div>
           </div>

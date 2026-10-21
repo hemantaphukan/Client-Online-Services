@@ -122,5 +122,6 @@ export interface AppNotification {
   forRole?: UserRole;
   userId?: string;
   orderId?: string;
+  referenceId?: string;
   linkTab?: string;
 }

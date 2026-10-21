@@ -1,7 +1,22 @@
 import React from 'react';
 import { useApp } from '../contexts/AppContext';
 import { UserRole } from '../types';
-import { LogOut, User as UserIcon, Shield, Menu, X, Wallet, ArrowUpRight } from 'lucide-react';
+import { 
+  LogOut, 
+  User as UserIcon, 
+  Shield, 
+  Menu, 
+  X, 
+  Wallet, 
+  ArrowUpRight, 
+  Bell, 
+  ShoppingCart, 
+  CheckCheck, 
+  Clock, 
+  Trash2,
+  FileCheck,
+  CheckCircle2
+} from 'lucide-react';
 
 export interface TabItem {
   id: string;
@@ -25,18 +40,38 @@ export const Layout: React.FC<LayoutProps> = ({
   tabs,
   onRequestTopup
 }) => {
-  const { currentUser, logout, pendingRequestsCount } = useApp();
+  const { 
+    currentUser, 
+    logout, 
+    pendingRequestsCount,
+    pendingOrdersCount,
+    notifications,
+    unreadNotificationsCount,
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
+    clearNotifications
+  } = useApp();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [notificationsOpen, setNotificationsOpen] = React.useState(false);
 
   const isCustomer = currentUser?.role === UserRole.CUSTOMER;
   const isAdmin = currentUser?.role === UserRole.ADMIN;
+
+  const handleNotificationClick = (notif: typeof notifications[0]) => {
+    markNotificationAsRead(notif.id);
+    if (notif.linkTab && onTabChange) {
+      onTabChange(notif.linkTab);
+      setNotificationsOpen(false);
+      setMobileMenuOpen(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-800">
       {/* Sidebar - Desktop */}
       <aside className="hidden md:flex flex-col w-64 bg-slate-900 text-white min-h-screen fixed top-0 left-0 z-50 shadow-xl border-r border-slate-800">
         {/* Brand header */}
-        <div className="p-6 border-b border-slate-800/80 flex items-center justify-between">
+        <div className="p-5 border-b border-slate-800/80 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-600/30">
               <Shield className="w-6 h-6 text-white" />
@@ -46,6 +81,19 @@ export const Layout: React.FC<LayoutProps> = ({
               <span className="text-[10px] uppercase font-semibold text-indigo-400 tracking-wider">Portal & Wallet</span>
             </div>
           </div>
+
+          {/* Desktop Notifications Bell Button */}
+          <button
+            type="button"
+            onClick={() => setNotificationsOpen(!notificationsOpen)}
+            className="relative p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors"
+            title="Notifications"
+          >
+            <Bell className="w-5 h-5" />
+            {unreadNotificationsCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-slate-900 animate-pulse" />
+            )}
+          </button>
         </div>
         
         <div className="p-4 flex-1 flex flex-col overflow-y-auto">
@@ -100,11 +148,11 @@ export const Layout: React.FC<LayoutProps> = ({
             </div>
           )}
 
-          {/* Admin Live Pending Indicator */}
+          {/* Admin Live Pending Top-up Indicator */}
           {isAdmin && pendingRequestsCount > 0 && (
             <div 
               onClick={() => onTabChange?.('wallet-requests')}
-              className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 cursor-pointer hover:bg-amber-500/20 transition-colors"
+              className="mb-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 cursor-pointer hover:bg-amber-500/20 transition-colors"
             >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-amber-300 flex items-center space-x-1.5">
@@ -116,6 +164,25 @@ export const Layout: React.FC<LayoutProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-amber-200/80 mt-1">Clients waiting for wallet credit approval</p>
+            </div>
+          )}
+
+          {/* Admin Live Pending Orders Indicator */}
+          {isAdmin && pendingOrdersCount > 0 && (
+            <div 
+              onClick={() => onTabChange?.('orders')}
+              className="mb-4 p-3 rounded-xl bg-indigo-500/15 border border-indigo-500/30 cursor-pointer hover:bg-indigo-500/25 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-indigo-300 flex items-center space-x-1.5">
+                  <ShoppingCart className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+                  <span>Client Orders</span>
+                </span>
+                <span className="bg-indigo-400 text-slate-900 text-xs font-bold px-2 py-0.5 rounded-full">
+                  {pendingOrdersCount} new
+                </span>
+              </div>
+              <p className="text-[11px] text-indigo-200/80 mt-1">Clients placed orders requiring fulfillment</p>
             </div>
           )}
 
@@ -174,6 +241,19 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
 
         <div className="flex items-center space-x-2">
+          {/* Mobile Notifications Bell */}
+          <button
+            type="button"
+            onClick={() => setNotificationsOpen(true)}
+            className="relative p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"
+            title="Notifications"
+          >
+            <Bell className="w-5 h-5" />
+            {unreadNotificationsCount > 0 && (
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-slate-900" />
+            )}
+          </button>
+
           {isCustomer && (
             <button
               onClick={() => onTabChange?.('wallet')}
@@ -184,13 +264,13 @@ export const Layout: React.FC<LayoutProps> = ({
             </button>
           )}
 
-          {isAdmin && pendingRequestsCount > 0 && (
+          {isAdmin && (pendingRequestsCount > 0 || pendingOrdersCount > 0) && (
             <button
-              onClick={() => onTabChange?.('wallet-requests')}
+              onClick={() => onTabChange?.(pendingRequestsCount > 0 ? 'wallet-requests' : 'orders')}
               className="flex items-center space-x-1 px-2.5 py-1 bg-amber-500/20 border border-amber-400/40 text-amber-300 rounded-lg text-xs font-bold"
             >
-              <Wallet className="w-3.5 h-3.5" />
-              <span>{pendingRequestsCount}</span>
+              <Bell className="w-3.5 h-3.5" />
+              <span>{pendingRequestsCount + pendingOrdersCount}</span>
             </button>
           )}
 
@@ -258,6 +338,137 @@ export const Layout: React.FC<LayoutProps> = ({
           {children}
         </div>
       </main>
+
+      {/* NOTIFICATIONS DRAWER / MODAL */}
+      {notificationsOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex justify-end animate-in fade-in duration-150">
+          <div 
+            className="w-full max-w-md bg-white h-full shadow-2xl border-l border-slate-200 flex flex-col animate-in slide-in-from-right duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Notifications Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                  <Bell className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <h3 className="font-bold text-slate-900 text-base">Notifications</h3>
+                    {unreadNotificationsCount > 0 && (
+                      <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded-full">
+                        {unreadNotificationsCount} new
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500">Live order & wallet balance activity</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-1">
+                {unreadNotificationsCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={markAllNotificationsAsRead}
+                    className="p-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-semibold hover:bg-indigo-50 rounded-lg flex items-center space-x-1"
+                    title="Mark all as read"
+                  >
+                    <CheckCheck className="w-4 h-4" />
+                    <span className="hidden sm:inline">Mark read</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setNotificationsOpen(false)}
+                  className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Notifications List */}
+            <div className="flex-1 overflow-y-auto divide-y divide-slate-100 p-2 sm:p-3">
+              {notifications.length === 0 ? (
+                <div className="py-16 text-center px-4">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                    <Bell className="w-7 h-7" />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-800 mb-1">No notifications yet</h4>
+                  <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                    You'll be alerted when clients place new orders, upload attachments, or when wallet funds are credited.
+                  </p>
+                </div>
+              ) : (
+                notifications.map(n => (
+                  <div
+                    key={n.id}
+                    onClick={() => handleNotificationClick(n)}
+                    className={`p-3.5 rounded-xl transition-all cursor-pointer mb-1 border ${
+                      !n.read 
+                        ? 'bg-indigo-50/70 hover:bg-indigo-50 border-indigo-200/80 shadow-sm' 
+                        : 'bg-white hover:bg-slate-50 border-transparent'
+                    }`}
+                  >
+                    <div className="flex items-start space-x-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                        n.type === 'ORDER_PLACED' ? 'bg-indigo-600 text-white' :
+                        n.type === 'WALLET_REQUEST' ? 'bg-amber-500 text-white' :
+                        n.type === 'WALLET_APPROVED' ? 'bg-emerald-600 text-white' :
+                        n.type === 'ORDER_DELIVERABLE' ? 'bg-violet-600 text-white' :
+                        'bg-slate-700 text-white'
+                      }`}>
+                        {n.type === 'ORDER_PLACED' ? <ShoppingCart className="w-4 h-4" /> :
+                         n.type === 'WALLET_REQUEST' || n.type === 'WALLET_APPROVED' ? <Wallet className="w-4 h-4" /> :
+                         n.type === 'ORDER_DELIVERABLE' ? <FileCheck className="w-4 h-4" /> :
+                         <Bell className="w-4 h-4" />}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <h4 className={`text-xs font-bold truncate ${!n.read ? 'text-indigo-950 font-extrabold' : 'text-slate-900'}`}>
+                            {n.title}
+                          </h4>
+                          {!n.read && (
+                            <span className="w-2 h-2 rounded-full bg-indigo-600 flex-shrink-0 ml-2" />
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-600 leading-snug line-clamp-2">
+                          {n.message}
+                        </p>
+                        <div className="flex items-center space-x-2 mt-2 text-[10px] text-slate-400 font-medium">
+                          <Clock className="w-3 h-3" />
+                          <span>{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(n.createdAt).toLocaleDateString()}</span>
+                          {n.linkTab && (
+                            <span className="text-indigo-600 font-semibold hover:underline">
+                              View in {n.linkTab.replace('-', ' ')} &rarr;
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Notifications Footer */}
+            {notifications.length > 0 && (
+              <div className="p-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-mono text-[11px]">{notifications.length} Total</span>
+                <button
+                  type="button"
+                  onClick={clearNotifications}
+                  className="text-slate-500 hover:text-red-600 font-semibold flex items-center space-x-1"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Clear all</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
